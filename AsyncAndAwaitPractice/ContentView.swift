@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 class AsyncAndAwaitDataManager {
     
@@ -24,7 +25,7 @@ class AsyncAndAwaitDataManager {
     enum ImageLoadingError: Error {
         case failToConvert
     }
-    
+    /*
     func fetchWithCompletion(_ completionHandler: @escaping (_ image: UIImage?, _ error: Error?) -> Void) {
         
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
@@ -37,6 +38,14 @@ class AsyncAndAwaitDataManager {
             }
             completionHandler(uiImage, nil)
         }.resume()
+    } */
+    
+    func fetchWithCombine() -> AnyPublisher<UIImage?, Error> {
+        URLSession.shared.dataTaskPublisher(for: url)
+            .map(handleResponse)
+            .mapError({ $0 })
+            .eraseToAnyPublisher()
+        
     }
 }
 
@@ -46,20 +55,30 @@ class AsyncAndAwaitViewModel: ObservableObject {
     @Published var wedError: String?
     
     let dataManager = AsyncAndAwaitDataManager()
-    
+    var cancellables = Set<AnyCancellable>()
     func fetchImage() {
-//        if let uiImage = UIImage(systemName: "heart.fill") {
-//            self.image = Image(uiImage: uiImage)
-//        }
-        dataManager.fetchWithCompletion { [weak self] image, error in
-            DispatchQueue.main.async {
-                if let image = image {
+        //        if let uiImage = UIImage(systemName: "heart.fill") {
+        //            self.image = Image(uiImage: uiImage)
+        //        }
+        //        dataManager.fetchWithCompletion { [weak self] image, error in
+        //            DispatchQueue.main.async {
+        //                if let image = image {
+        //                    self?.image = Image(uiImage: image)
+        //                } else {
+        //                    self?.wedError = error?.localizedDescription
+        //                }
+        //            }
+        //        }
+        dataManager.fetchWithCombine()
+            .receive(on: DispatchQueue.main)
+            .sink { _ in 
+            } receiveValue: { [weak self] uiImage in
+                if let image = uiImage {
                     self?.image = Image(uiImage: image)
-                } else {
-                    self?.wedError = error?.localizedDescription
                 }
             }
-        }
+            .store(in: &cancellables)
+        
     }
     
     
