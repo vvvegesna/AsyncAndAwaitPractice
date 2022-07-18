@@ -38,14 +38,22 @@ class AsyncAndAwaitDataManager {
             }
             completionHandler(uiImage, nil)
         }.resume()
-    } */
+    }
     
     func fetchWithCombine() -> AnyPublisher<UIImage?, Error> {
         URLSession.shared.dataTaskPublisher(for: url)
             .map(handleResponse)
             .mapError({ $0 })
             .eraseToAnyPublisher()
-        
+    }
+     */
+    func fetchWithAsyncAwait() async throws -> UIImage? {
+        do {
+        let (data, response) =  try await URLSession.shared.data(from: url)
+            return handleResponse(data, response)
+        } catch {
+            throw error
+        }
     }
 }
 
@@ -56,7 +64,7 @@ class AsyncAndAwaitViewModel: ObservableObject {
     
     let dataManager = AsyncAndAwaitDataManager()
     var cancellables = Set<AnyCancellable>()
-    func fetchImage() {
+    func fetchImage() async {
         //        if let uiImage = UIImage(systemName: "heart.fill") {
         //            self.image = Image(uiImage: uiImage)
         //        }
@@ -69,15 +77,22 @@ class AsyncAndAwaitViewModel: ObservableObject {
         //                }
         //            }
         //        }
+       /*
         dataManager.fetchWithCombine()
             .receive(on: DispatchQueue.main)
-            .sink { _ in 
+            .sink { _ in
             } receiveValue: { [weak self] uiImage in
                 if let image = uiImage {
                     self?.image = Image(uiImage: image)
                 }
             }
             .store(in: &cancellables)
+        */
+        if let uiImage = try? await dataManager.fetchWithAsyncAwait() {
+            await MainActor.run {
+                self.image = Image(uiImage: uiImage)
+            }
+        }
         
     }
     
@@ -98,7 +113,9 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            vm.fetchImage()
+            Task {
+                await vm.fetchImage()
+            }
         }
     }
 }
